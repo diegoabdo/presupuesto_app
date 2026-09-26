@@ -14,12 +14,18 @@ class AppState extends ChangeNotifier {
 
   bool isLoading = false;
   String? error;
+  DateTime? lastSyncedAt;
 
   List<PayPeriod> payPeriods = [];
   List<BudgetCategory> budgetCategories = [];
   List<SavingsGoal> savingsGoals = [];
   List<IncomeSourceTemplate> incomeSourceTemplates = [];
   List<DeductionRuleTemplate> deductionRuleTemplates = [];
+
+  /// Gastos ya cargados por categoría, para el desglose que se ve al
+  /// expandir una categoría en Presupuesto. Se piden bajo demanda (no en
+  /// loadAll) porque la mayoría de las veces el usuario no los abre.
+  final Map<String, List<BudgetExpense>> expensesByCategory = {};
 
   bool get hasData =>
       payPeriods.isNotEmpty || budgetCategories.isNotEmpty || savingsGoals.isNotEmpty;
@@ -44,6 +50,7 @@ class AppState extends ChangeNotifier {
       savingsGoals = results[2] as List<SavingsGoal>;
       incomeSourceTemplates = results[3] as List<IncomeSourceTemplate>;
       deductionRuleTemplates = results[4] as List<DeductionRuleTemplate>;
+      lastSyncedAt = DateTime.now();
     } on ApiException catch (e) {
       error = e.message;
     } catch (e) {
@@ -83,6 +90,21 @@ class AppState extends ChangeNotifier {
       note: note,
       spentAt: spentAt,
     );
+    expensesByCategory.remove(budgetCategoryId);
+    await refreshBudgetCategories();
+  }
+
+  /// Trae (o refresca) el desglose de gastos de una categoría. Se guarda
+  /// en memoria para no volver a pedirlo cada vez que se colapsa/expande.
+  Future<void> loadExpensesForCategory(String budgetCategoryId) async {
+    expensesByCategory[budgetCategoryId] =
+        await _repo.fetchExpenses(budgetCategoryId: budgetCategoryId);
+    notifyListeners();
+  }
+
+  Future<void> deleteExpense({required String id, required String budgetCategoryId}) async {
+    await _repo.deleteExpense(id);
+    expensesByCategory.remove(budgetCategoryId);
     await refreshBudgetCategories();
   }
 
@@ -124,6 +146,35 @@ class AppState extends ChangeNotifier {
       deductions: deductions,
     );
     await refreshPayPeriods();
+  }
+
+  /// Actualiza una planilla existente (período, método de pago, esquema
+  /// e ingresos). Los descuentos quedan igual: ver DataRepository.updatePayPeriod.
+  Future<void> updatePayPeriod({
+    required String id,
+    required DateTime periodStart,
+    required DateTime periodEnd,
+    required DateTime payDate,
+    required String paymentMethod,
+    required WorkSchedule schedule,
+    required List<Map<String, dynamic>> incomes,
+  }) async {
+    await _repo.updatePayPeriod(
+      id: id,
+      periodStart: periodStart,
+      periodEnd: periodEnd,
+      payDate: payDate,
+      paymentMethod: paymentMethod,
+      schedule: schedule,
+      incomes: incomes,
+    );
+    await refreshPayPeriods();
+  }
+
+  Future<void> deletePayPeriod(String id) async {
+    await _repo.deletePayPeriod(id);
+    payPeriods = payPeriods.where((p) => p.id != id).toList();
+    notifyListeners();
   }
 
   Future<void> createSavingsGoal({
@@ -242,8 +293,10 @@ class AppState extends ChangeNotifier {
     savingsGoals = [];
     incomeSourceTemplates = [];
     deductionRuleTemplates = [];
+    expensesByCategory.clear();
     error = null;
     isLoading = false;
+    lastSyncedAt = null;
     notifyListeners();
   }
 }

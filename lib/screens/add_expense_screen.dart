@@ -4,6 +4,7 @@ import '../models/budget_category.dart';
 import '../services/api_exception.dart';
 import '../state/app_state_scope.dart';
 import '../theme/app_theme.dart';
+import '../utils/formatters.dart';
 
 class AddExpenseScreen extends StatefulWidget {
   const AddExpenseScreen({super.key});
@@ -17,7 +18,23 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   BudgetCategory? _selectedCategory;
   bool _initialized = false;
   bool _isSaving = false;
+  DateTime _spentAt = DateTime.now();
   final _noteController = TextEditingController();
+
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _spentAt,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2035),
+    );
+    if (picked != null) setState(() => _spentAt = picked);
+  }
+
+  bool _isToday(DateTime date) {
+    final now = DateTime.now();
+    return date.year == now.year && date.month == now.month && date.day == now.day;
+  }
 
   @override
   void dispose() {
@@ -64,7 +81,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
         budgetCategoryId: category.id,
         amount: amount,
         note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
-        spentAt: DateTime.now(),
+        spentAt: _spentAt,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -153,25 +170,31 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       ],
                     ),
                   const SizedBox(height: 20),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      border: Border.all(color: AppColors.line),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Fecha', style: theme.textTheme.bodyMedium),
-                        Row(
-                          children: [
-                            Text('Hoy', style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-                            const SizedBox(width: 4),
-                            const Icon(Icons.chevron_right, size: 18, color: AppColors.slate),
-                          ],
-                        ),
-                      ],
+                  InkWell(
+                    onTap: _pickDate,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        border: Border.all(color: AppColors.line),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text('Fecha', style: theme.textTheme.bodyMedium),
+                          Row(
+                            children: [
+                              Text(
+                                _isToday(_spentAt) ? 'Hoy' : AppFormatters.date(_spentAt),
+                                style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.chevron_right, size: 18, color: AppColors.slate),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                   const SizedBox(height: 12),
