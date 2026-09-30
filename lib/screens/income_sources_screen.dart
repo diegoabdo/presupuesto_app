@@ -107,6 +107,7 @@ class IncomeSourcesScreen extends StatelessWidget {
       backgroundColor: AppColors.paper,
       appBar: AppBar(title: const Text('Fuentes de ingreso')),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'income_sources_add',
         backgroundColor: AppColors.ink,
         onPressed: () => _addTemplate(context),
         child: const Icon(Icons.add),

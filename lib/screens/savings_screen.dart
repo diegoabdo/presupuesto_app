@@ -25,6 +25,7 @@ class SavingsScreen extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         floatingActionButton: FloatingActionButton(
+          heroTag: 'savings_add_goal',
           backgroundColor: AppColors.ink,
           onPressed: () {
             Navigator.of(context).push(
