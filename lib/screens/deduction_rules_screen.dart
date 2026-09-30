@@ -99,6 +99,7 @@ class DeductionRulesScreen extends StatelessWidget {
       backgroundColor: AppColors.paper,
       appBar: AppBar(title: const Text('Reglas de descuento')),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'deduction_rules_add',
         backgroundColor: AppColors.ink,
         onPressed: () => _addRule(context),
         child: const Icon(Icons.add),

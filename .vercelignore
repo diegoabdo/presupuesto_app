@@ -1,0 +1,14 @@
+.dart_tool/
+.flutter-plugins
+.packages
+pubspec.lock
+ios/
+android/
+windows/
+linux/
+macos/
+test/
+.git/
+.gitignore
+README.md
+analysis_options.yaml

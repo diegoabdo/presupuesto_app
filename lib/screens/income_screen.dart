@@ -25,6 +25,7 @@ class IncomeScreen extends StatelessWidget {
       child: Scaffold(
         backgroundColor: Colors.transparent,
         floatingActionButton: FloatingActionButton(
+          heroTag: 'income_add_pay_period',
           backgroundColor: AppColors.ink,
           onPressed: () {
             Navigator.of(context).push(
@@ -121,8 +122,65 @@ class _PayPeriodTile extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 12),
+          const Divider(height: 1),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => AddPayPeriodScreen(existing: period)),
+                ),
+                icon: const Icon(Icons.edit_outlined, size: 18),
+                label: const Text('Editar'),
+              ),
+              TextButton.icon(
+                onPressed: () => _confirmDelete(context, period),
+                icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.rust),
+                label: const Text('Eliminar', style: TextStyle(color: AppColors.rust)),
+              ),
+            ],
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _confirmDelete(BuildContext context, PayPeriod period) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar planilla'),
+        content: Text(
+          '¿Seguro que quieres eliminar la planilla del '
+          '${AppFormatters.date(period.payDate)}? Esta acción no se puede deshacer.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.rust),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      await AppStateScope.of(context).deletePayPeriod(period.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Planilla eliminada.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo eliminar la planilla.')),
+        );
+      }
+    }
   }
 }

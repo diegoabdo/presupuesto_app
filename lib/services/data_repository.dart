@@ -83,6 +83,34 @@ class DataRepository {
     );
   }
 
+  /// Actualiza los datos del período y reemplaza sus ingresos. Los
+  /// descuentos no se envían: el backend los deja fijos desde que se creó
+  /// la planilla (ver PayPeriodController::update).
+  Future<PayPeriod> updatePayPeriod({
+    required String id,
+    required DateTime periodStart,
+    required DateTime periodEnd,
+    required DateTime payDate,
+    required String paymentMethod,
+    required WorkSchedule schedule,
+    required List<Map<String, dynamic>> incomes,
+  }) {
+    return _client.put(
+      '/pay-periods/$id',
+      {
+        'period_start': _dateOnly(periodStart),
+        'period_end': _dateOnly(periodEnd),
+        'pay_date': _dateOnly(payDate),
+        'payment_method': paymentMethod,
+        'work_schedule': schedule.apiValue,
+        'incomes': incomes,
+      },
+      (json) => PayPeriod.fromJson(json as Map<String, dynamic>),
+    );
+  }
+
+  Future<void> deletePayPeriod(String id) => _client.delete('/pay-periods/$id');
+
   // ---- Fuentes de ingreso (plantillas) ----
 
   Future<List<IncomeSourceTemplate>> fetchIncomeSources() {
@@ -187,6 +215,17 @@ class DataRepository {
       (json) => BudgetExpense.fromJson(json as Map<String, dynamic>),
     );
   }
+
+  /// Historial de gastos, opcionalmente filtrado por categoría (para el
+  /// desglose que se ve al expandir una categoría en Presupuesto).
+  Future<List<BudgetExpense>> fetchExpenses({String? budgetCategoryId}) {
+    final query = budgetCategoryId != null ? '?budget_category_id=$budgetCategoryId' : '';
+    return _client.get('/budget-expenses$query', (json) {
+      return _asList(json).map((e) => BudgetExpense.fromJson(e as Map<String, dynamic>)).toList();
+    });
+  }
+
+  Future<void> deleteExpense(String id) => _client.delete('/budget-expenses/$id');
 
   // ---- Ahorro ----
 

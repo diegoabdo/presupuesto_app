@@ -20,7 +20,11 @@ class _DeductionLine {
 }
 
 class AddPayPeriodScreen extends StatefulWidget {
-  const AddPayPeriodScreen({super.key});
+  /// Si viene una planilla existente, la pantalla entra en modo edición:
+  /// precarga período/ingresos y llama a updatePayPeriod en vez de crear
+  /// una nueva. Los descuentos no son editables aquí (ver nota en _save).
+  final PayPeriod? existing;
+  const AddPayPeriodScreen({super.key, this.existing});
 
   @override
   State<AddPayPeriodScreen> createState() => _AddPayPeriodScreenState();
@@ -36,6 +40,24 @@ class _AddPayPeriodScreenState extends State<AddPayPeriodScreen> {
   final List<_IncomeLine> _incomes = [];
   final List<_DeductionLine> _deductions = [];
   bool _isSaving = false;
+
+  bool get _isEditing => widget.existing != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final existing = widget.existing;
+    if (existing != null) {
+      _periodStart = existing.periodStart;
+      _periodEnd = existing.periodEnd;
+      _payDate = existing.payDate;
+      _paymentMethodController.text = existing.paymentMethod;
+      _schedule = existing.schedule;
+      _incomes.addAll(
+        existing.incomeSources.map((i) => _IncomeLine(label: i.label, amount: i.amount)),
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -191,23 +213,36 @@ class _AddPayPeriodScreenState extends State<AddPayPeriodScreen> {
 
     setState(() => _isSaving = true);
     try {
-      await AppStateScope.of(context).createPayPeriod(
-        periodStart: _periodStart,
-        periodEnd: _periodEnd,
-        payDate: _payDate,
-        paymentMethod: _paymentMethodController.text.trim(),
-        schedule: _schedule,
-        incomes: _incomes.map((i) => {'label': i.label, 'amount': i.amount}).toList(),
-        deductions: _deductions
-            .map((d) => {
-                  'deduction_rule_id': int.parse(d.rule.id),
-                  'base_amount': d.baseAmount,
-                })
-            .toList(),
-      );
+      final existing = widget.existing;
+      if (existing != null) {
+        await AppStateScope.of(context).updatePayPeriod(
+          id: existing.id,
+          periodStart: _periodStart,
+          periodEnd: _periodEnd,
+          payDate: _payDate,
+          paymentMethod: _paymentMethodController.text.trim(),
+          schedule: _schedule,
+          incomes: _incomes.map((i) => {'label': i.label, 'amount': i.amount}).toList(),
+        );
+      } else {
+        await AppStateScope.of(context).createPayPeriod(
+          periodStart: _periodStart,
+          periodEnd: _periodEnd,
+          payDate: _payDate,
+          paymentMethod: _paymentMethodController.text.trim(),
+          schedule: _schedule,
+          incomes: _incomes.map((i) => {'label': i.label, 'amount': i.amount}).toList(),
+          deductions: _deductions
+              .map((d) => {
+                    'deduction_rule_id': int.parse(d.rule.id),
+                    'base_amount': d.baseAmount,
+                  })
+              .toList(),
+        );
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Planilla guardada.')),
+        SnackBar(content: Text(_isEditing ? 'Cambios guardados.' : 'Planilla guardada.')),
       );
       Navigator.of(context).maybePop();
     } on ApiException catch (e) {
@@ -234,7 +269,7 @@ class _AddPayPeriodScreenState extends State<AddPayPeriodScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: const Text('Nueva planilla'),
+        title: Text(_isEditing ? 'Editar planilla' : 'Nueva planilla'),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -313,36 +348,61 @@ class _AddPayPeriodScreenState extends State<AddPayPeriodScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text('Descuentos', style: theme.textTheme.titleLarge),
-                      TextButton.icon(
-                        onPressed: _addDeductionLine,
-                        icon: const Icon(Icons.add, size: 18),
-                        label: const Text('Agregar'),
-                      ),
+                      if (!_isEditing)
+                        TextButton.icon(
+                          onPressed: _addDeductionLine,
+                          icon: const Icon(Icons.add, size: 18),
+                          label: const Text('Agregar'),
+                        ),
                     ],
                   ),
-                  if (_deductions.isEmpty)
-                    Text('Sin descuentos agregados.', style: theme.textTheme.bodyMedium)
-                  else
-                    ..._deductions.asMap().entries.map(
-                          (entry) => ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            title: Text(entry.value.rule.label),
-                            subtitle: Text('Base: ${AppFormatters.currency(entry.value.baseAmount)}'),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  '-${AppFormatters.currency(entry.value.baseAmount * entry.value.rule.percentage)}',
-                                  style: const TextStyle(color: AppColors.rust),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.close, size: 18),
-                                  onPressed: () => setState(() => _deductions.removeAt(entry.key)),
-                                ),
-                              ],
-                            ),
+                  if (_isEditing) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Quedan fijos desde que se creó la planilla; borra y crea una '
+                      'nueva si necesitas cambiarlos.',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 8),
+                    if (widget.existing!.deductions.isEmpty)
+                      Text('Sin descuentos.', style: theme.textTheme.bodyMedium)
+                    else
+                      ...widget.existing!.deductions.map(
+                        (d) => ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(d.label),
+                          subtitle: Text('Base: ${AppFormatters.currency(d.baseAmount)}'),
+                          trailing: Text(
+                            '-${AppFormatters.currency(d.amount)}',
+                            style: const TextStyle(color: AppColors.rust),
                           ),
                         ),
+                      ),
+                  ] else ...[
+                    if (_deductions.isEmpty)
+                      Text('Sin descuentos agregados.', style: theme.textTheme.bodyMedium)
+                    else
+                      ..._deductions.asMap().entries.map(
+                            (entry) => ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(entry.value.rule.label),
+                              subtitle: Text('Base: ${AppFormatters.currency(entry.value.baseAmount)}'),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '-${AppFormatters.currency(entry.value.baseAmount * entry.value.rule.percentage)}',
+                                    style: const TextStyle(color: AppColors.rust),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.close, size: 18),
+                                    onPressed: () => setState(() => _deductions.removeAt(entry.key)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                  ],
                 ],
               ),
             ),
@@ -363,7 +423,7 @@ class _AddPayPeriodScreenState extends State<AddPayPeriodScreen> {
                           width: 20,
                           child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                         )
-                      : const Text('Guardar planilla'),
+                      : Text(_isEditing ? 'Guardar cambios' : 'Guardar planilla'),
                 ),
               ),
             ),

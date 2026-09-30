@@ -131,6 +131,7 @@ class BudgetCategoriesScreen extends StatelessWidget {
       backgroundColor: AppColors.paper,
       appBar: AppBar(title: const Text('Categorías de presupuesto')),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'budget_categories_add',
         backgroundColor: AppColors.ink,
         onPressed: () => _addOrEdit(context),
         child: const Icon(Icons.add),
