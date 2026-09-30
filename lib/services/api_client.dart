@@ -11,7 +11,7 @@ import 'api_exception.dart';
 ///
 /// - Android (emulador):      http://10.0.2.2:8000/api
 ///   (10.0.2.2 es cómo el emulador de Android ve a "localhost" de tu PC)
-/// - Web / Chrome / PWA:      http://127.0.0.1:8000/api
+/// - Web / Chrome / PWA:      https://presupuesto-api-fndjceg7b5guasab.northcentralus-01.azurewebsites.net/api
 /// - Dispositivo físico (celular real en la misma red Wi-Fi que tu PC):
 ///   http://TU_IP_LOCAL:8000/api  (ej. http://192.168.1.50:8000/api)
 ///   Corre `php artisan serve --host=0.0.0.0` para que la API escuche
@@ -25,13 +25,13 @@ class ApiConfig {
   static String baseUrl = _defaultBaseUrl();
 
   static String _defaultBaseUrl() {
-    if (kIsWeb) return 'http://127.0.0.1:8000/api';
+    if (kIsWeb) return 'https://presupuesto-api-fndjceg7b5guasab.northcentralus-01.azurewebsites.net/api';
     try {
       if (Platform.isAndroid) return 'http://10.0.2.2:8000/api';
     } catch (_) {
       // Platform no disponible en este target; usar el valor por defecto.
     }
-    return 'http://127.0.0.1:8000/api';
+    return 'https://presupuesto-api-fndjceg7b5guasab.northcentralus-01.azurewebsites.net/api';
   }
 }
 
