@@ -20,11 +20,39 @@
   <meta content="IE=Edge" http-equiv="X-UA-Compatible">
   <meta name="description" content="A new Flutter project.">
 
+  <!--
+    viewport-fit=cover: sin esto, iOS no deja que el fondo de la página se
+    extienda debajo del status bar (notch/dynamic island), y esa franja
+    queda pintada de blanco por defecto sin importar el modo oscuro de
+    la app.
+  -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+
   <!-- iOS meta tags & icons -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <!--
+    black-translucent: el status bar se vuelve transparente y deja ver el
+    fondo real de la página (ver también theme-color y el <style> de abajo),
+    en vez de pintar una franja sólida aparte.
+  -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="presupuesto_app">
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!--
+    Color de fondo antes de que Flutter cargue/pinte, y el que usan
+    Android Chrome y Safari para teñir su propia UI alrededor de la
+    página. Coincide con AppColors.paper (claro/oscuro) de app_theme.dart;
+    main.dart lo actualiza en vivo si el usuario cambia el tema dentro
+    de la app sin que coincida con el modo del sistema.
+  -->
+  <meta name="theme-color" content="#EEF1F5">
+  <style>
+    html, body { background: #EEF1F5; }
+    @media (prefers-color-scheme: dark) {
+      html, body { background: #12161F; }
+    }
+  </style>
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>

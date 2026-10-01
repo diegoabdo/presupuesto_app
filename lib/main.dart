@@ -13,6 +13,7 @@ import 'state/app_state.dart';
 import 'state/app_state_scope.dart';
 import 'state/theme_controller.dart';
 import 'theme/app_theme.dart';
+import 'web/theme_color.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -61,6 +62,7 @@ class _PresupuestoAppState extends State<PresupuestoApp> {
             builder: (context, child) {
               final brightness = Theme.of(context).brightness;
               AppColors.syncWithBrightness(brightness);
+              syncWebChromeColor(AppColors.paper);
               final iconBrightness = brightness == Brightness.dark ? Brightness.light : Brightness.dark;
               SystemChrome.setSystemUIOverlayStyle(
                 SystemUiOverlayStyle(
