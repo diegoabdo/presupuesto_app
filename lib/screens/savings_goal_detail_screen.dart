@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../models/budget_category.dart';
 import '../models/savings_goal.dart';
 import '../services/api_exception.dart';
 import '../state/app_state_scope.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 import '../widgets/progress_ring.dart';
+
+const _savingsContributionCategoryLabel = 'Meta de ahorro';
 
 class SavingsGoalDetailScreen extends StatefulWidget {
   final SavingsGoal goal;
@@ -146,17 +149,21 @@ class _SavingsGoalDetailScreenState extends State<SavingsGoalDetailScreen> {
   }
 
   /// Formulario compartido por "Agregar aporte" y "Editar aporte": monto,
-  /// nota y fecha. Devuelve null si se cancela.
-  Future<({double amount, String? note, DateTime date})?> _showContributionDialog({
+  /// nota y fecha. [askSource] solo aplica al agregar: no tiene sentido
+  /// volver a preguntar de dónde salió un aporte que ya se registró.
+  /// Devuelve null si se cancela.
+  Future<({double amount, String? note, DateTime date, bool fromPayroll})?> _showContributionDialog({
     required String title,
     double? initialAmount,
     String? initialNote,
     DateTime? initialDate,
+    bool askSource = false,
   }) async {
     final amountController =
         TextEditingController(text: initialAmount != null ? initialAmount.toStringAsFixed(2) : '');
     final noteController = TextEditingController(text: initialNote ?? '');
     DateTime date = initialDate ?? DateTime.now();
+    bool fromPayroll = false;
     final formKey = GlobalKey<FormState>();
 
     final result = await showDialog<bool>(
@@ -201,6 +208,34 @@ class _SavingsGoalDetailScreenState extends State<SavingsGoalDetailScreen> {
                     child: Text(AppFormatters.date(date)),
                   ),
                 ),
+                if (askSource) ...[
+                  const SizedBox(height: 16),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('¿De dónde viene este aporte?', style: Theme.of(ctx).textTheme.bodyMedium),
+                  ),
+                  const SizedBox(height: 8),
+                  SegmentedButton<bool>(
+                    style: const ButtonStyle(
+                      textStyle: WidgetStatePropertyAll(TextStyle(fontSize: 12)),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    segments: const [
+                      ButtonSegment(value: false, label: Text('Independiente')),
+                      ButtonSegment(value: true, label: Text('De planilla')),
+                    ],
+                    selected: {fromPayroll},
+                    onSelectionChanged: (s) => setDialogState(() => fromPayroll = s.first),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    fromPayroll
+                        ? 'Se registrará también como gasto en "$_savingsContributionCategoryLabel" '
+                            'y se restará de tu disponible.'
+                        : 'No se registra como gasto ni afecta tu presupuesto.',
+                    style: Theme.of(ctx).textTheme.bodySmall?.copyWith(color: AppColors.slate),
+                  ),
+                ],
               ],
             ),
           ),
@@ -218,11 +253,23 @@ class _SavingsGoalDetailScreenState extends State<SavingsGoalDetailScreen> {
     );
 
     if (result != true) return null;
-    return (amount: double.parse(amountController.text), note: noteController.text.trim(), date: date);
+    return (
+      amount: double.parse(amountController.text),
+      note: noteController.text.trim(),
+      date: date,
+      fromPayroll: fromPayroll,
+    );
+  }
+
+  BudgetCategory? _findCategoryByName(List<BudgetCategory> categories, String name) {
+    for (final c in categories) {
+      if (c.name == name) return c;
+    }
+    return null;
   }
 
   Future<void> _addContribution() async {
-    final input = await _showContributionDialog(title: 'Agregar aporte');
+    final input = await _showContributionDialog(title: 'Agregar aporte', askSource: true);
     if (input == null) return;
     if (!mounted) return;
 
@@ -234,6 +281,23 @@ class _SavingsGoalDetailScreenState extends State<SavingsGoalDetailScreen> {
         note: input.note?.isEmpty ?? true ? null : input.note,
         contributedAt: input.date,
       );
+
+      if (input.fromPayroll) {
+        final existing = _findCategoryByName(appState.budgetCategories, _savingsContributionCategoryLabel);
+        final categoryId = existing?.id ??
+            (await appState.createBudgetCategory(
+              name: _savingsContributionCategoryLabel,
+              monthlyBudget: null,
+            ))
+                .id;
+        await appState.addExpense(
+          budgetCategoryId: categoryId,
+          amount: input.amount,
+          note: 'Aporte a ${_goal.name}',
+          spentAt: input.date,
+        );
+      }
+
       if (!mounted) return;
       final updated = appState.savingsGoals.firstWhere(
         (g) => g.id == _goal.id,
@@ -241,7 +305,7 @@ class _SavingsGoalDetailScreenState extends State<SavingsGoalDetailScreen> {
       );
       setState(() => _goal = updated);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Aporte agregado.')),
+        SnackBar(content: Text(input.fromPayroll ? 'Aporte agregado y descontado de tus gastos.' : 'Aporte agregado.')),
       );
     } on ApiException catch (e) {
       if (!mounted) return;

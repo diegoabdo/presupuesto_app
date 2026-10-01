@@ -36,6 +36,20 @@ class AppState extends ChangeNotifier {
   bool get hasData =>
       payPeriods.isNotEmpty || budgetCategories.isNotEmpty || savingsGoals.isNotEmpty;
 
+  /// La planilla que define el "periodo actual" de presupuesto: la más
+  /// reciente cuya fecha de pago ya llegó (no el mes calendario). El
+  /// backend usa el mismo criterio para calcular cuánto llevas gastado
+  /// este periodo (ver BudgetCategory::currentPeriodBounds en la API).
+  /// payPeriods ya viene ordenada por fecha de pago descendente.
+  PayPeriod? get currentPayPeriod {
+    final today = DateTime.now();
+    final todayOnly = DateTime(today.year, today.month, today.day);
+    for (final p in payPeriods) {
+      if (!p.payDate.isAfter(todayOnly)) return p;
+    }
+    return null;
+  }
+
   /// Carga todo de una vez (se llama al iniciar sesión y al hacer
   /// pull-to-refresh). Las peticiones van en paralelo.
   Future<void> loadAll() async {

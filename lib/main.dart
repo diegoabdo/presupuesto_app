@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
 import 'screens/budget_screen.dart';
@@ -52,8 +53,24 @@ class _PresupuestoAppState extends State<PresupuestoApp> {
             // con el brillo que Flutter ya resolvió para este frame, así
             // los widgets que usan AppColors.xxx directamente (en vez de
             // Theme.of(context)) también responden al modo oscuro.
+            //
+            // También recoloreamos la barra de estado del sistema aquí: sin
+            // esto, al cambiar a oscuro la franja de arriba (detrás del
+            // notch/dynamic island) se queda con el color claro de fondo
+            // porque el so nunca se entera de que el tema cambió.
             builder: (context, child) {
-              AppColors.syncWithBrightness(Theme.of(context).brightness);
+              final brightness = Theme.of(context).brightness;
+              AppColors.syncWithBrightness(brightness);
+              final iconBrightness = brightness == Brightness.dark ? Brightness.light : Brightness.dark;
+              SystemChrome.setSystemUIOverlayStyle(
+                SystemUiOverlayStyle(
+                  statusBarColor: Colors.transparent,
+                  statusBarIconBrightness: iconBrightness,
+                  statusBarBrightness: brightness,
+                  systemNavigationBarColor: AppColors.paper,
+                  systemNavigationBarIconBrightness: iconBrightness,
+                ),
+              );
               return child!;
             },
             home: AuthGate(appState: _appState),
@@ -149,7 +166,13 @@ class _AppShellState extends State<AppShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(index: _index, children: _screens),
-      bottomNavigationBar: NavigationBar(
+      // SafeArea(top: false) + un poco de padding extra: sin esto, en un
+      // teléfono con home indicator (o incluso sin él) la barra queda
+      // pegada justo al borde y se siente aplastada contra la pantalla.
+      bottomNavigationBar: SafeArea(
+        top: false,
+        minimum: const EdgeInsets.only(bottom: 8),
+        child: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
@@ -179,6 +202,7 @@ class _AppShellState extends State<AppShell> {
             label: 'Ajustes',
           ),
         ],
+        ),
       ),
     );
   }

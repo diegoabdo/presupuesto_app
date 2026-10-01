@@ -26,12 +26,10 @@ class BudgetScreen extends StatelessWidget {
     final totalSpent = categories.fold(0.0, (s, c) => s + c.spent);
 
     // "Disponible real" es el efectivo que de verdad te queda: lo que
-    // entró este mes (de tus planillas) menos todo lo gastado, sin
-    // importar cómo lo repartiste por categoría.
-    final now = DateTime.now();
-    final monthIncome = appState.payPeriods
-        .where((p) => p.payDate.year == now.year && p.payDate.month == now.month)
-        .fold(0.0, (s, p) => s + p.netPay);
+    // entró en tu última planilla menos todo lo gastado desde esa fecha
+    // de pago, sin importar cómo lo repartiste por categoría. El período
+    // va de pago a pago, no de mes calendario (ver AppState.currentPayPeriod).
+    final monthIncome = appState.currentPayPeriod?.netPay ?? 0.0;
     final realAvailable = monthIncome - totalSpent;
 
     return SafeArea(
