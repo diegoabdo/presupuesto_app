@@ -10,11 +10,13 @@ import 'screens/settings_screen.dart';
 import 'services/auth_service.dart';
 import 'state/app_state.dart';
 import 'state/app_state_scope.dart';
+import 'state/theme_controller.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('es', null);
+  await ThemeController.instance.load();
   runApp(const PresupuestoApp());
 }
 
@@ -37,11 +39,26 @@ class _PresupuestoAppState extends State<PresupuestoApp> {
   Widget build(BuildContext context) {
     return AppStateScope(
       appState: _appState,
-      child: MaterialApp(
-        title: 'Mi Presupuesto',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.light(),
-        home: AuthGate(appState: _appState),
+      child: ListenableBuilder(
+        listenable: ThemeController.instance,
+        builder: (context, _) {
+          return MaterialApp(
+            title: 'Mi Presupuesto',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light(),
+            darkTheme: AppTheme.dark(),
+            themeMode: ThemeController.instance.mode,
+            // AppColors se sincroniza aquí (antes de construir la pantalla)
+            // con el brillo que Flutter ya resolvió para este frame, así
+            // los widgets que usan AppColors.xxx directamente (en vez de
+            // Theme.of(context)) también responden al modo oscuro.
+            builder: (context, child) {
+              AppColors.syncWithBrightness(Theme.of(context).brightness);
+              return child!;
+            },
+            home: AuthGate(appState: _appState),
+          );
+        },
       ),
     );
   }
@@ -97,9 +114,9 @@ class _AuthGateState extends State<AuthGate> {
   @override
   Widget build(BuildContext context) {
     if (_checking) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppColors.paper,
-        body: Center(child: CircularProgressIndicator()),
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
     if (!_loggedIn) {
@@ -154,7 +171,7 @@ class _AppShellState extends State<AppShell> {
           NavigationDestination(
             icon: Icon(Icons.savings_outlined),
             selectedIcon: Icon(Icons.savings),
-            label: 'Ahorro',
+            label: 'Capital',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined),

@@ -193,7 +193,7 @@ class _DayCell extends StatelessWidget {
         margin: const EdgeInsets.all(2),
         alignment: Alignment.center,
         decoration: BoxDecoration(
-          color: hasPay ? AppColors.brass.withOpacity(0.18) : null,
+          color: hasPay ? AppColors.brass.withValues(alpha: 0.18) : null,
           shape: BoxShape.circle,
           border: isToday ? Border.all(color: AppColors.ink, width: 1.5) : null,
         ),
@@ -226,7 +226,7 @@ class _UpcomingTile extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.line),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(AppRadii.card),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,

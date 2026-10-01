@@ -10,6 +10,7 @@ import 'api_client.dart';
 class BudgetExpense {
   final String id;
   final String budgetCategoryId;
+  final String? categoryName;
   final double amount;
   final String? note;
   final DateTime spentAt;
@@ -19,12 +20,14 @@ class BudgetExpense {
     required this.budgetCategoryId,
     required this.amount,
     required this.spentAt,
+    this.categoryName,
     this.note,
   });
 
   factory BudgetExpense.fromJson(Map<String, dynamic> json) => BudgetExpense(
         id: json['id'].toString(),
         budgetCategoryId: json['budget_category_id'].toString(),
+        categoryName: (json['category'] as Map<String, dynamic>?)?['name'] as String?,
         amount: jsonToDouble(json['amount']),
         note: json['note'] as String?,
         spentAt: DateTime.parse(json['spent_at'] as String),
@@ -167,11 +170,12 @@ class DataRepository {
 
   Future<BudgetCategory> createBudgetCategory({
     required String name,
-    required double monthlyBudget,
+    required double? monthlyBudget,
+    bool isRecurring = true,
   }) {
     return _client.post(
       '/budget-categories',
-      {'name': name, 'monthly_budget': monthlyBudget},
+      {'name': name, 'monthly_budget': monthlyBudget, 'is_recurring': isRecurring},
       (json) => BudgetCategory.fromJson(json as Map<String, dynamic>),
     );
   }
@@ -179,11 +183,12 @@ class DataRepository {
   Future<BudgetCategory> updateBudgetCategory({
     required String id,
     required String name,
-    required double monthlyBudget,
+    required double? monthlyBudget,
+    bool isRecurring = true,
   }) {
     return _client.put(
       '/budget-categories/$id',
-      {'name': name, 'monthly_budget': monthlyBudget},
+      {'name': name, 'monthly_budget': monthlyBudget, 'is_recurring': isRecurring},
       (json) => BudgetCategory.fromJson(json as Map<String, dynamic>),
     );
   }
@@ -268,6 +273,8 @@ class DataRepository {
     );
   }
 
+  Future<void> deleteSavingsGoal(String id) => _client.delete('/savings-goals/$id');
+
   Future<SavingsGoal> addContribution({
     required String savingsGoalId,
     required double amount,
@@ -281,6 +288,34 @@ class DataRepository {
         if (note != null && note.isNotEmpty) 'note': note,
         'contributed_at': _dateOnly(contributedAt),
       },
+      (json) => SavingsGoal.fromJson(json as Map<String, dynamic>),
+    );
+  }
+
+  Future<SavingsGoal> updateContribution({
+    required String savingsGoalId,
+    required String contributionId,
+    required double amount,
+    String? note,
+    required DateTime contributedAt,
+  }) {
+    return _client.put(
+      '/savings-goals/$savingsGoalId/contributions/$contributionId',
+      {
+        'amount': amount,
+        if (note != null && note.isNotEmpty) 'note': note,
+        'contributed_at': _dateOnly(contributedAt),
+      },
+      (json) => SavingsGoal.fromJson(json as Map<String, dynamic>),
+    );
+  }
+
+  Future<SavingsGoal> deleteContribution({
+    required String savingsGoalId,
+    required String contributionId,
+  }) {
+    return _client.deleteWithResult(
+      '/savings-goals/$savingsGoalId/contributions/$contributionId',
       (json) => SavingsGoal.fromJson(json as Map<String, dynamic>),
     );
   }

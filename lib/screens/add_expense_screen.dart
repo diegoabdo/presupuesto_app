@@ -13,9 +13,12 @@ class AddExpenseScreen extends StatefulWidget {
   State<AddExpenseScreen> createState() => _AddExpenseScreenState();
 }
 
+const _noCategoryLabel = 'Sin categoría';
+
 class _AddExpenseScreenState extends State<AddExpenseScreen> {
   String _amount = '0';
   BudgetCategory? _selectedCategory;
+  bool _noCategory = false;
   bool _initialized = false;
   bool _isSaving = false;
   DateTime _spentAt = DateTime.now();
@@ -34,6 +37,15 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
   bool _isToday(DateTime date) {
     final now = DateTime.now();
     return date.year == now.year && date.month == now.month && date.day == now.day;
+  }
+
+  /// Si ya existe la categoría "Sin categoría" (de un gasto suelto
+  /// anterior), la reutiliza en vez de crear una duplicada.
+  BudgetCategory? _findNoCategory(List<BudgetCategory> categories) {
+    for (final c in categories) {
+      if (c.name == _noCategoryLabel) return c;
+    }
+    return null;
   }
 
   @override
@@ -68,7 +80,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
       );
       return;
     }
-    if (category == null) {
+    if (!_noCategory && category == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Elige una categoría.')),
       );
@@ -77,8 +89,22 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
 
     setState(() => _isSaving = true);
     try {
-      await AppStateScope.of(context).addExpense(
-        budgetCategoryId: category.id,
+      final appState = AppStateScope.of(context);
+      String categoryId;
+      if (_noCategory) {
+        final existing = _findNoCategory(appState.budgetCategories);
+        categoryId = existing?.id ??
+            (await appState.createBudgetCategory(
+              name: _noCategoryLabel,
+              monthlyBudget: null,
+            ))
+                .id;
+      } else {
+        categoryId = category!.id;
+      }
+
+      await appState.addExpense(
+        budgetCategoryId: categoryId,
         amount: amount,
         note: _noteController.text.trim().isEmpty ? null : _noteController.text.trim(),
         spentAt: _spentAt,
@@ -141,34 +167,44 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   const SizedBox(height: 24),
                   Text('Categoría', style: theme.textTheme.bodyMedium),
                   const SizedBox(height: 10),
-                  if (categories.isEmpty)
-                    Text(
-                      'Primero crea una categoría de presupuesto.',
-                      style: theme.textTheme.bodyMedium,
-                    )
-                  else
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (final category in categories)
-                          ChoiceChip(
-                            label: Text(category.name),
-                            selected: _selectedCategory?.id == category.id,
-                            onSelected: (_) => setState(() => _selectedCategory = category),
-                            selectedColor: AppColors.ink,
-                            backgroundColor: AppColors.surface,
-                            side: const BorderSide(color: AppColors.line),
-                            labelStyle: TextStyle(
-                              color: _selectedCategory?.id == category.id
-                                  ? Colors.white
-                                  : AppColors.ink,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                            ),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final category in categories.where((c) => c.name != _noCategoryLabel))
+                        ChoiceChip(
+                          label: Text(category.name),
+                          selected: !_noCategory && _selectedCategory?.id == category.id,
+                          onSelected: (_) => setState(() {
+                            _selectedCategory = category;
+                            _noCategory = false;
+                          }),
+                          selectedColor: AppColors.ink,
+                          backgroundColor: AppColors.surface,
+                          side: BorderSide(color: AppColors.line),
+                          labelStyle: TextStyle(
+                            color: !_noCategory && _selectedCategory?.id == category.id
+                                ? AppColors.paper
+                                : AppColors.ink,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
                           ),
-                      ],
-                    ),
+                        ),
+                      ChoiceChip(
+                        label: const Text(_noCategoryLabel),
+                        selected: _noCategory,
+                        onSelected: (_) => setState(() => _noCategory = true),
+                        selectedColor: AppColors.ink,
+                        backgroundColor: AppColors.surface,
+                        side: BorderSide(color: AppColors.line),
+                        labelStyle: TextStyle(
+                          color: _noCategory ? AppColors.paper : AppColors.ink,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 20),
                   InkWell(
                     onTap: _pickDate,
@@ -177,7 +213,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       decoration: BoxDecoration(
                         color: AppColors.surface,
                         border: Border.all(color: AppColors.line),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(AppRadii.control),
                       ),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -190,7 +226,7 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                                 style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
                               ),
                               const SizedBox(width: 4),
-                              const Icon(Icons.chevron_right, size: 18, color: AppColors.slate),
+                              Icon(Icons.chevron_right, size: 18, color: AppColors.slate),
                             ],
                           ),
                         ],
@@ -205,8 +241,8 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                       filled: true,
                       fillColor: AppColors.surface,
                       border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: const BorderSide(color: AppColors.line),
+                        borderRadius: BorderRadius.circular(AppRadii.control),
+                        borderSide: BorderSide(color: AppColors.line),
                       ),
                     ),
                   ),
@@ -224,13 +260,13 @@ class _AddExpenseScreenState extends State<AddExpenseScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.ink,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.control)),
                   ),
                   child: _isSaving
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.paper),
                         )
                       : const Text('Guardar gasto'),
                 ),
@@ -262,14 +298,14 @@ class _Keypad extends StatelessWidget {
           onPressed: () => onKeyTap(k),
           style: OutlinedButton.styleFrom(
             backgroundColor: AppColors.surface,
-            side: const BorderSide(color: AppColors.line),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            side: BorderSide(color: AppColors.line),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.control)),
           ),
           child: k == 'back'
-              ? const Icon(Icons.backspace_outlined, size: 20, color: AppColors.ink)
+              ? Icon(Icons.backspace_outlined, size: 20, color: AppColors.ink)
               : Text(
                   k,
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.ink),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.ink),
                 ),
         );
       }).toList(),

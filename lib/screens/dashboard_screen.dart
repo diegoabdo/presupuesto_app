@@ -4,6 +4,7 @@ import '../models/pay_period.dart';
 import '../state/app_state_scope.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../widgets/animated_progress_bar.dart';
 import '../widgets/ledger_row.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -28,7 +29,7 @@ class DashboardScreen extends StatelessWidget {
     final goals = appState.savingsGoals;
     final goal = goals.isNotEmpty ? goals.first : null;
     final categories = appState.budgetCategories;
-    final totalBudgeted = categories.fold(0.0, (s, c) => s + c.budgeted);
+    final totalBudgeted = categories.fold(0.0, (s, c) => s + (c.budgeted ?? 0));
     final totalSpent = categories.fold(0.0, (s, c) => s + c.spent);
 
     return RefreshIndicator(
@@ -37,7 +38,10 @@ class DashboardScreen extends StatelessWidget {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
           children: [
-            Text('Hola, Diego', style: theme.textTheme.bodyMedium),
+            Text(
+              'Hola, ${appState.currentUser?.name.split(' ').first ?? ''}',
+              style: theme.textTheme.bodyMedium,
+            ),
             const SizedBox(height: 4),
             Text('Tu resumen', style: theme.textTheme.headlineMedium),
             const SizedBox(height: 28),
@@ -47,25 +51,27 @@ class DashboardScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppColors.ink,
-                  borderRadius: BorderRadius.circular(4),
+                  color: theme.colorScheme.primary,
+                  borderRadius: BorderRadius.circular(AppRadii.card),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       'Última planilla registrada',
-                      style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(color: theme.colorScheme.onPrimary.withValues(alpha: 0.7)),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       AppFormatters.currency(nextPay.netPay),
-                      style: theme.textTheme.displayMedium?.copyWith(color: Colors.white),
+                      style: theme.textTheme.displayMedium?.copyWith(color: theme.colorScheme.onPrimary),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${AppFormatters.date(nextPay.payDate)} · ${nextPay.paymentMethod} · ${nextPay.schedule.label}',
-                      style: theme.textTheme.bodyMedium?.copyWith(color: Colors.white70),
+                      style: theme.textTheme.bodyMedium
+                          ?.copyWith(color: theme.colorScheme.onPrimary.withValues(alpha: 0.7)),
                     ),
                   ],
                 ),
@@ -99,14 +105,11 @@ class DashboardScreen extends StatelessWidget {
             if (goal != null) ...[
               Text(goal.name, style: theme.textTheme.titleLarge),
               const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(3),
-                child: LinearProgressIndicator(
-                  value: goal.progress,
-                  minHeight: 8,
-                  backgroundColor: AppColors.line,
-                  valueColor: const AlwaysStoppedAnimation(AppColors.brass),
-                ),
+              AnimatedProgressBar(
+                value: goal.progress,
+                minHeight: 8,
+                backgroundColor: AppColors.line,
+                color: AppColors.brass,
               ),
               const SizedBox(height: 8),
               Text(
@@ -125,8 +128,10 @@ class DashboardScreen extends StatelessWidget {
               ...categories.map(
                 (c) => LedgerRow(
                   label: c.name,
-                  sublabel: '${AppFormatters.currency(c.spent)} de ${AppFormatters.currency(c.budgeted)}',
-                  trailing: AppFormatters.currency(c.remaining),
+                  sublabel: c.hasLimit
+                      ? '${AppFormatters.currency(c.spent)} de ${AppFormatters.currency(c.budgeted!)}'
+                      : '${AppFormatters.currency(c.spent)} · sin límite',
+                  trailing: c.hasLimit ? AppFormatters.currency(c.remaining!) : '—',
                   trailingColor: c.isOverBudget ? AppColors.rust : AppColors.sage,
                 ),
               ),
@@ -172,7 +177,7 @@ class _EmptyCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.line),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(AppRadii.card),
       ),
       child: Text(text, style: theme.textTheme.bodyMedium),
     );

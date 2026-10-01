@@ -12,66 +12,90 @@ class BudgetCategoriesScreen extends StatelessWidget {
   Future<void> _addOrEdit(BuildContext context, {BudgetCategory? existing}) async {
     final nameController = TextEditingController(text: existing?.name ?? '');
     final budgetController = TextEditingController(
-      text: existing != null ? existing.budgeted.toStringAsFixed(2) : '',
+      text: existing?.budgeted != null ? existing!.budgeted!.toStringAsFixed(2) : '',
     );
+    bool noLimit = existing != null && !existing.hasLimit;
+    bool isRecurring = existing?.isRecurring ?? true;
     final formKey = GlobalKey<FormState>();
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(existing == null ? 'Nueva categoría' : 'Editar categoría'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: nameController,
-                autofocus: true,
-                decoration: const InputDecoration(labelText: 'Nombre (ej. Renta, Comida)'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Ingresa un nombre' : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: budgetController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Presupuesto mensual (Q)'),
-                validator: (v) {
-                  final value = double.tryParse(v ?? '');
-                  if (value == null || value < 0) return 'Ingresa un monto válido';
-                  return null;
-                },
-              ),
-            ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(existing == null ? 'Nueva categoría' : 'Editar categoría'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameController,
+                  autofocus: true,
+                  decoration: const InputDecoration(labelText: 'Nombre (ej. Renta, Comida)'),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Ingresa un nombre' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: budgetController,
+                  enabled: !noLimit,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Presupuesto mensual (Q)'),
+                  validator: (v) {
+                    if (noLimit) return null;
+                    final value = double.tryParse(v ?? '');
+                    if (value == null || value < 0) return 'Ingresa un monto válido';
+                    return null;
+                  },
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Sin límite de presupuesto'),
+                  subtitle: const Text('Para gastos sueltos que no quieres encasillar'),
+                  value: noLimit,
+                  onChanged: (v) => setDialogState(() => noLimit = v),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Se repite cada mes'),
+                  subtitle: const Text('Si la apagas, la categoría solo aplica a este mes'),
+                  value: isRecurring,
+                  onChanged: (v) => setDialogState(() => isRecurring = v),
+                ),
+              ],
+            ),
           ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
-          FilledButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
-            },
-            child: const Text('Guardar'),
-          ),
-        ],
       ),
     );
 
     if (result != true) return;
     if (!context.mounted) return;
 
+    final monthlyBudget = noLimit ? null : double.parse(budgetController.text);
+
     try {
       final appState = AppStateScope.of(context);
       if (existing == null) {
         await appState.createBudgetCategory(
           name: nameController.text.trim(),
-          monthlyBudget: double.parse(budgetController.text),
+          monthlyBudget: monthlyBudget,
+          isRecurring: isRecurring,
         );
       } else {
         await appState.updateBudgetCategory(
           id: existing.id,
           name: nameController.text.trim(),
-          monthlyBudget: double.parse(budgetController.text),
+          monthlyBudget: monthlyBudget,
+          isRecurring: isRecurring,
         );
       }
     } on ApiException catch (e) {
@@ -152,16 +176,29 @@ class BudgetCategoriesScreen extends StatelessWidget {
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, i) {
                   final c = categories[i];
+                  final budgetLabel = c.hasLimit
+                      ? 'Presupuesto: ${AppFormatters.currency(c.budgeted!)}'
+                      : 'Sin límite de presupuesto';
                   return ListTile(
                     contentPadding: EdgeInsets.zero,
-                    title: Text(c.name),
+                    title: Row(
+                      children: [
+                        Text(c.name),
+                        if (!c.isRecurring) ...[
+                          const SizedBox(width: 6),
+                          Text(
+                            '· solo este mes',
+                            style: theme.textTheme.bodySmall?.copyWith(color: AppColors.slate),
+                          ),
+                        ],
+                      ],
+                    ),
                     subtitle: Text(
-                      'Presupuesto: ${AppFormatters.currency(c.budgeted)} · '
-                      'Gastado este mes: ${AppFormatters.currency(c.spent)}',
+                      '$budgetLabel · Gastado este mes: ${AppFormatters.currency(c.spent)}',
                     ),
                     onTap: () => _addOrEdit(context, existing: c),
                     trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline, color: AppColors.rust),
+                      icon: Icon(Icons.delete_outline, color: AppColors.rust),
                       onPressed: () => _delete(context, c),
                     ),
                   );

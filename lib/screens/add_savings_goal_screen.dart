@@ -74,7 +74,7 @@ class _AddSavingsGoalScreenState extends State<AddSavingsGoalScreen> {
           icon: const Icon(Icons.close),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
-        title: const Text('Nueva meta de ahorro'),
+        title: const Text('Nueva meta de capital'),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -108,7 +108,7 @@ class _AddSavingsGoalScreenState extends State<AddSavingsGoalScreen> {
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     border: Border.all(color: AppColors.line),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(AppRadii.control),
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -121,7 +121,7 @@ class _AddSavingsGoalScreenState extends State<AddSavingsGoalScreen> {
                             style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(width: 4),
-                          const Icon(Icons.chevron_right, size: 18, color: AppColors.slate),
+                          Icon(Icons.chevron_right, size: 18, color: AppColors.slate),
                         ],
                       ),
                     ],
@@ -134,13 +134,13 @@ class _AddSavingsGoalScreenState extends State<AddSavingsGoalScreen> {
                 style: FilledButton.styleFrom(
                   backgroundColor: AppColors.ink,
                   padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.control)),
                 ),
                 child: _isSaving
-                    ? const SizedBox(
+                    ? SizedBox(
                         height: 20,
                         width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.paper),
                       )
                     : const Text('Crear meta'),
               ),

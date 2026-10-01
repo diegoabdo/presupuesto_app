@@ -72,7 +72,7 @@ class _PayPeriodTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.line),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(AppRadii.card),
       ),
       child: ExpansionTile(
         tilePadding: const EdgeInsets.symmetric(horizontal: 16),
@@ -137,8 +137,8 @@ class _PayPeriodTile extends StatelessWidget {
               ),
               TextButton.icon(
                 onPressed: () => _confirmDelete(context, period),
-                icon: const Icon(Icons.delete_outline, size: 18, color: AppColors.rust),
-                label: const Text('Eliminar', style: TextStyle(color: AppColors.rust)),
+                icon: Icon(Icons.delete_outline, size: 18, color: AppColors.rust),
+                label: Text('Eliminar', style: TextStyle(color: AppColors.rust)),
               ),
             ],
           ),

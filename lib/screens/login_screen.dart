@@ -119,13 +119,13 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.ink,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.control)),
                     ),
                     child: _isLoading
-                        ? const SizedBox(
+                        ? SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.paper),
                           )
                         : Text(_isRegister ? 'Crear cuenta' : 'Entrar'),
                   ),

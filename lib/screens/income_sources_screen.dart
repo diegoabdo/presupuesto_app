@@ -137,7 +137,7 @@ class IncomeSourcesScreen extends StatelessWidget {
                       '${t.isRecurring ? "Recurrente" : "Puntual"}',
                     ),
                     trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline, color: AppColors.rust),
+                      icon: Icon(Icons.delete_outline, color: AppColors.rust),
                       onPressed: () => _delete(context, t.id),
                     ),
                   );

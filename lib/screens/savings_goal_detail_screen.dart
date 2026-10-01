@@ -112,64 +112,127 @@ class _SavingsGoalDetailScreenState extends State<SavingsGoalDetailScreen> {
     }
   }
 
-  Future<void> _addContribution() async {
-    final amountController = TextEditingController();
-    final noteController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    final result = await showDialog<bool>(
+  Future<void> _deleteGoal() async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Agregar aporte'),
-        content: Form(
-          key: formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: amountController,
-                autofocus: true,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'Monto (Q)'),
-                validator: (v) {
-                  final value = double.tryParse(v ?? '');
-                  if (value == null || value <= 0) return 'Ingresa un monto válido';
-                  return null;
-                },
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: noteController,
-                decoration: const InputDecoration(labelText: 'Nota (opcional)'),
-              ),
-            ],
-          ),
+        title: const Text('Eliminar meta'),
+        content: Text(
+          '¿Eliminar "${_goal.name}" y todos sus aportes registrados? '
+          'Esta acción no se puede deshacer.',
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
           FilledButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
-            },
-            child: const Text('Guardar'),
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.rust),
+            child: const Text('Eliminar'),
           ),
         ],
       ),
     );
+    if (confirmed != true || !mounted) return;
 
-    if (result != true) return;
+    try {
+      await AppStateScope.of(context).deleteSavingsGoal(_goal.id);
+      if (!mounted) return;
+      Navigator.of(context).pop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo eliminar la meta.')),
+      );
+    }
+  }
+
+  /// Formulario compartido por "Agregar aporte" y "Editar aporte": monto,
+  /// nota y fecha. Devuelve null si se cancela.
+  Future<({double amount, String? note, DateTime date})?> _showContributionDialog({
+    required String title,
+    double? initialAmount,
+    String? initialNote,
+    DateTime? initialDate,
+  }) async {
+    final amountController =
+        TextEditingController(text: initialAmount != null ? initialAmount.toStringAsFixed(2) : '');
+    final noteController = TextEditingController(text: initialNote ?? '');
+    DateTime date = initialDate ?? DateTime.now();
+    final formKey = GlobalKey<FormState>();
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(title),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: amountController,
+                  autofocus: true,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: const InputDecoration(labelText: 'Monto (Q)'),
+                  validator: (v) {
+                    final value = double.tryParse(v ?? '');
+                    if (value == null || value <= 0) return 'Ingresa un monto válido';
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: noteController,
+                  decoration: const InputDecoration(labelText: 'Nota (opcional)'),
+                ),
+                const SizedBox(height: 12),
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: ctx,
+                      initialDate: date,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2100),
+                    );
+                    if (picked != null) setDialogState(() => date = picked);
+                  },
+                  child: InputDecorator(
+                    decoration: const InputDecoration(labelText: 'Fecha'),
+                    child: Text(AppFormatters.date(date)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+            FilledButton(
+              onPressed: () {
+                if (formKey.currentState!.validate()) Navigator.pop(ctx, true);
+              },
+              child: const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (result != true) return null;
+    return (amount: double.parse(amountController.text), note: noteController.text.trim(), date: date);
+  }
+
+  Future<void> _addContribution() async {
+    final input = await _showContributionDialog(title: 'Agregar aporte');
+    if (input == null) return;
     if (!mounted) return;
-
-    final amount = double.parse(amountController.text);
-    final note = noteController.text.trim();
 
     try {
       final appState = AppStateScope.of(context);
       await appState.addContribution(
         savingsGoalId: _goal.id,
-        amount: amount,
-        note: note.isEmpty ? null : note,
-        contributedAt: DateTime.now(),
+        amount: input.amount,
+        note: input.note?.isEmpty ?? true ? null : input.note,
+        contributedAt: input.date,
       );
       if (!mounted) return;
       final updated = appState.savingsGoals.firstWhere(
@@ -187,6 +250,86 @@ class _SavingsGoalDetailScreenState extends State<SavingsGoalDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('No se pudo guardar el aporte.')),
+      );
+    }
+  }
+
+  Future<void> _editContribution(SavingsContribution contribution) async {
+    final input = await _showContributionDialog(
+      title: 'Editar aporte',
+      initialAmount: contribution.amount,
+      initialNote: contribution.note,
+      initialDate: contribution.date,
+    );
+    if (input == null) return;
+    if (!mounted) return;
+
+    try {
+      final appState = AppStateScope.of(context);
+      await appState.updateContribution(
+        savingsGoalId: _goal.id,
+        contributionId: contribution.id,
+        amount: input.amount,
+        note: input.note?.isEmpty ?? true ? null : input.note,
+        contributedAt: input.date,
+      );
+      if (!mounted) return;
+      final updated = appState.savingsGoals.firstWhere(
+        (g) => g.id == _goal.id,
+        orElse: () => _goal,
+      );
+      setState(() => _goal = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aporte actualizado.')),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo actualizar el aporte.')),
+      );
+    }
+  }
+
+  Future<void> _deleteContribution(SavingsContribution contribution) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar aporte'),
+        content: Text(
+          '¿Eliminar el aporte de ${AppFormatters.currency(contribution.amount)} '
+          'del ${AppFormatters.date(contribution.date)}?',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: AppColors.rust),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    try {
+      final appState = AppStateScope.of(context);
+      await appState.deleteContribution(savingsGoalId: _goal.id, contributionId: contribution.id);
+      if (!mounted) return;
+      final updated = appState.savingsGoals.firstWhere(
+        (g) => g.id == _goal.id,
+        orElse: () => _goal,
+      );
+      setState(() => _goal = updated);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Aporte eliminado.')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo eliminar el aporte.')),
       );
     }
   }
@@ -213,6 +356,11 @@ class _SavingsGoalDetailScreenState extends State<SavingsGoalDetailScreen> {
             icon: const Icon(Icons.edit_outlined),
             tooltip: 'Editar meta',
             onPressed: _editGoal,
+          ),
+          IconButton(
+            icon: const Icon(Icons.delete_outline),
+            tooltip: 'Eliminar meta',
+            onPressed: _deleteGoal,
           ),
         ],
       ),
@@ -241,7 +389,7 @@ class _SavingsGoalDetailScreenState extends State<SavingsGoalDetailScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _Stat(label: 'Ahorrado', value: AppFormatters.currency(goal.currentAmount)),
+                  child: _Stat(label: 'Acumulado', value: AppFormatters.currency(goal.currentAmount)),
                 ),
                 Expanded(
                   child: _Stat(label: 'Meta', value: AppFormatters.currency(goal.targetAmount)),
@@ -276,14 +424,37 @@ class _SavingsGoalDetailScreenState extends State<SavingsGoalDetailScreen> {
             else
               ...contributions.map(
                 (c) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  padding: const EdgeInsets.symmetric(vertical: 6),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(AppFormatters.date(c.date), style: theme.textTheme.bodyMedium),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(AppFormatters.date(c.date), style: theme.textTheme.bodyMedium),
+                            if (c.note != null && c.note!.isNotEmpty)
+                              Text(
+                                c.note!,
+                                style: theme.textTheme.bodySmall?.copyWith(color: AppColors.slate),
+                              ),
+                          ],
+                        ),
+                      ),
                       Text(
                         '+${AppFormatters.currency(c.amount)}',
                         style: theme.textTheme.bodyLarge?.copyWith(color: AppColors.sage),
+                      ),
+                      PopupMenuButton<String>(
+                        icon: Icon(Icons.more_vert, size: 18, color: AppColors.slate),
+                        onSelected: (action) {
+                          if (action == 'edit') _editContribution(c);
+                          if (action == 'delete') _deleteContribution(c);
+                        },
+                        itemBuilder: (ctx) => const [
+                          PopupMenuItem(value: 'edit', child: Text('Editar')),
+                          PopupMenuItem(value: 'delete', child: Text('Eliminar')),
+                        ],
                       ),
                     ],
                   ),

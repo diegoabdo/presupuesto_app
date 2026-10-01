@@ -374,7 +374,7 @@ class _AddPayPeriodScreenState extends State<AddPayPeriodScreen> {
                           subtitle: Text('Base: ${AppFormatters.currency(d.baseAmount)}'),
                           trailing: Text(
                             '-${AppFormatters.currency(d.amount)}',
-                            style: const TextStyle(color: AppColors.rust),
+                            style: TextStyle(color: AppColors.rust),
                           ),
                         ),
                       ),
@@ -392,7 +392,7 @@ class _AddPayPeriodScreenState extends State<AddPayPeriodScreen> {
                                 children: [
                                   Text(
                                     '-${AppFormatters.currency(entry.value.baseAmount * entry.value.rule.percentage)}',
-                                    style: const TextStyle(color: AppColors.rust),
+                                    style: TextStyle(color: AppColors.rust),
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.close, size: 18),
@@ -415,13 +415,13 @@ class _AddPayPeriodScreenState extends State<AddPayPeriodScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.ink,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.control)),
                   ),
                   child: _isSaving
-                      ? const SizedBox(
+                      ? SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.paper),
                         )
                       : Text(_isEditing ? 'Guardar cambios' : 'Guardar planilla'),
                 ),
@@ -450,7 +450,7 @@ class _DateField extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppColors.surface,
           border: Border.all(color: AppColors.line),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(AppRadii.control),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -460,7 +460,7 @@ class _DateField extends StatelessWidget {
               children: [
                 Text(AppFormatters.date(date), style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
                 const SizedBox(width: 4),
-                const Icon(Icons.chevron_right, size: 18, color: AppColors.slate),
+                Icon(Icons.chevron_right, size: 18, color: AppColors.slate),
               ],
             ),
           ],

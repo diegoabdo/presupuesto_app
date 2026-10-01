@@ -7,31 +7,37 @@ import 'package:http/http.dart' as http;
 
 import 'api_exception.dart';
 
-/// Dónde vive tu API de Laravel mientras desarrollas localmente.
+/// Dónde vive tu API de Laravel.
 ///
+/// Por defecto (sin pasar nada) apunta a tu backend local, para que
+/// `flutter run` funcione sin configuración extra:
 /// - Android (emulador):      http://10.0.2.2:8000/api
 ///   (10.0.2.2 es cómo el emulador de Android ve a "localhost" de tu PC)
-/// - Web / Chrome / PWA:      https://presupuesto-api-fndjceg7b5guasab.northcentralus-01.azurewebsites.net/api
+/// - Web / Chrome / PWA / Windows: http://127.0.0.1:8000/api
 /// - Dispositivo físico (celular real en la misma red Wi-Fi que tu PC):
 ///   http://TU_IP_LOCAL:8000/api  (ej. http://192.168.1.50:8000/api)
 ///   Corre `php artisan serve --host=0.0.0.0` para que la API escuche
 ///   en toda la red, no solo en 127.0.0.1.
 ///
-/// Cuando despliegues el backend (Railway/Render/VPS), cambia esto por
-/// la URL pública, ej. https://presupuesto-api.tuapp.com/api
+/// Para el build que se despliega (Vercel), pasa la URL de producción en
+/// tiempo de compilación en vez de editar este archivo:
+///   flutter build web --dart-define=API_BASE_URL=https://presupuesto-api-fndjceg7b5guasab.northcentralus-01.azurewebsites.net/api
 class ApiConfig {
   ApiConfig._();
 
   static String baseUrl = _defaultBaseUrl();
 
   static String _defaultBaseUrl() {
-    if (kIsWeb) return 'https://presupuesto-api-fndjceg7b5guasab.northcentralus-01.azurewebsites.net/api';
+    const override = String.fromEnvironment('API_BASE_URL');
+    if (override.isNotEmpty) return override;
+
+    if (kIsWeb) return 'http://127.0.0.1:8000/api';
     try {
       if (Platform.isAndroid) return 'http://10.0.2.2:8000/api';
     } catch (_) {
       // Platform no disponible en este target; usar el valor por defecto.
     }
-    return 'https://presupuesto-api-fndjceg7b5guasab.northcentralus-01.azurewebsites.net/api';
+    return 'http://127.0.0.1:8000/api';
   }
 }
 
@@ -146,5 +152,14 @@ class ApiClient {
         .delete(_uri(path), headers: await _headers())
         .catchError((e) => throw ApiException('No se pudo conectar con el servidor: $e'));
     _handle(response, (_) => null);
+  }
+
+  /// Como [delete], pero para los pocos endpoints (ej. borrar un aporte)
+  /// que devuelven el recurso padre ya actualizado en vez de 204 vacío.
+  Future<T> deleteWithResult<T>(String path, T Function(dynamic json) onOk) async {
+    final response = await http
+        .delete(_uri(path), headers: await _headers())
+        .catchError((e) => throw ApiException('No se pudo conectar con el servidor: $e'));
+    return _handle(response, onOk);
   }
 }

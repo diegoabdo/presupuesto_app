@@ -4,6 +4,7 @@ import '../models/savings_goal.dart';
 import '../state/app_state_scope.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
+import '../widgets/animated_progress_bar.dart';
 import 'add_savings_goal_screen.dart';
 import 'savings_goal_detail_screen.dart';
 
@@ -39,12 +40,12 @@ class SavingsScreen extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 100),
             children: [
-              Text('Ahorro', style: theme.textTheme.headlineMedium),
+              Text('Capital', style: theme.textTheme.headlineMedium),
               const SizedBox(height: 4),
               Text('Tus metas', style: theme.textTheme.bodyMedium),
               const SizedBox(height: 20),
               if (goals.isEmpty)
-                Text('Todavía no tienes metas de ahorro.', style: theme.textTheme.bodyMedium)
+                Text('Todavía no tienes metas de capital.', style: theme.textTheme.bodyMedium)
               else
                 ...goals.map((g) => _GoalCard(goal: g)),
             ],
@@ -73,7 +74,7 @@ class _GoalCard extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           border: Border.all(color: AppColors.line),
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(AppRadii.card),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -82,18 +83,14 @@ class _GoalCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(goal.name, style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-                const Icon(Icons.chevron_right, size: 18, color: AppColors.slate),
+                Icon(Icons.chevron_right, size: 18, color: AppColors.slate),
               ],
             ),
             const SizedBox(height: 10),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(3),
-              child: LinearProgressIndicator(
-                value: goal.progress,
-                minHeight: 6,
-                backgroundColor: AppColors.line,
-                valueColor: const AlwaysStoppedAnimation(AppColors.brass),
-              ),
+            AnimatedProgressBar(
+              value: goal.progress,
+              backgroundColor: AppColors.line,
+              color: AppColors.brass,
             ),
             const SizedBox(height: 8),
             Text(

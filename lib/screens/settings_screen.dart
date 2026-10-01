@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../services/auth_service.dart';
 import '../state/app_state_scope.dart';
+import '../state/theme_controller.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatters.dart';
 import 'deduction_rules_screen.dart';
@@ -60,6 +61,46 @@ class SettingsScreen extends StatelessWidget {
         children: [
           Text('Ajustes', style: theme.textTheme.headlineMedium),
           const SizedBox(height: 24),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Apariencia', style: theme.textTheme.bodyMedium),
+                const SizedBox(height: 8),
+                ListenableBuilder(
+                  listenable: ThemeController.instance,
+                  builder: (context, _) => SegmentedButton<ThemeMode>(
+                    style: SegmentedButton.styleFrom(
+                      selectedBackgroundColor: AppColors.ink,
+                      selectedForegroundColor: AppColors.paper,
+                      side: BorderSide(color: AppColors.line),
+                    ),
+                    segments: const [
+                      ButtonSegment(
+                        value: ThemeMode.light,
+                        icon: Icon(Icons.light_mode_outlined),
+                        label: Text('Claro'),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.dark,
+                        icon: Icon(Icons.dark_mode_outlined),
+                        label: Text('Oscuro'),
+                      ),
+                      ButtonSegment(
+                        value: ThemeMode.system,
+                        icon: Icon(Icons.brightness_auto_outlined),
+                        label: Text('Sistema'),
+                      ),
+                    ],
+                    selected: {ThemeController.instance.mode},
+                    onSelectionChanged: (selection) =>
+                        ThemeController.instance.setMode(selection.first),
+                  ),
+                ),
+              ],
+            ),
+          ),
           _SettingsSection(
             title: 'Ingresos',
             items: [
@@ -131,7 +172,7 @@ class _SettingsSection extends StatelessWidget {
           Container(
             decoration: BoxDecoration(
               border: Border.all(color: AppColors.line),
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(AppRadii.card),
             ),
             child: Column(
               children: [
@@ -160,7 +201,7 @@ class _SettingsItem extends StatelessWidget {
     return ListTile(
       leading: Icon(icon, color: AppColors.ink),
       title: Text(label),
-      trailing: trailing ?? const Icon(Icons.chevron_right, color: AppColors.slate),
+      trailing: trailing ?? Icon(Icons.chevron_right, color: AppColors.slate),
       onTap: onTap ??
           () {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -182,7 +223,7 @@ class _SyncBadge extends StatelessWidget {
         Container(
           width: 8,
           height: 8,
-          decoration: const BoxDecoration(color: AppColors.sage, shape: BoxShape.circle),
+          decoration: BoxDecoration(color: AppColors.sage, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
         Text(

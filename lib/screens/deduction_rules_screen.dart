@@ -125,7 +125,7 @@ class DeductionRulesScreen extends StatelessWidget {
                     title: Text(r.label),
                     subtitle: Text('${(r.percentage * 100).toStringAsFixed(2)}%'),
                     trailing: IconButton(
-                      icon: const Icon(Icons.delete_outline, color: AppColors.rust),
+                      icon: Icon(Icons.delete_outline, color: AppColors.rust),
                       onPressed: () => _delete(context, r.id),
                     ),
                   );

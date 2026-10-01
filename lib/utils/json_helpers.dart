@@ -11,3 +11,6 @@ double jsonToDouble(dynamic value) {
   if (value is String) return double.parse(value);
   throw FormatException('Valor numérico inválido: $value');
 }
+
+/// Como [jsonToDouble], pero deja pasar null (ej. un presupuesto "sin límite").
+double? jsonToDoubleOrNull(dynamic value) => value == null ? null : jsonToDouble(value);

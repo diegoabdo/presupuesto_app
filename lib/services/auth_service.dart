@@ -25,6 +25,16 @@ class AuthService {
 
   Future<bool> get isLoggedIn => _client.hasToken;
 
+  /// Trae el usuario de la sesión actual (GET /me). Se usa para saludar
+  /// por su nombre real, incluso cuando la sesión se restauró desde el
+  /// token guardado (sin pasar por login() en este arranque de la app).
+  Future<AuthUser> me() {
+    return _client.get<AuthUser>(
+      '/me',
+      (json) => AuthUser.fromJson(json as Map<String, dynamic>),
+    );
+  }
+
   Future<AuthUser> login({required String email, required String password}) async {
     final json = await _client.post<Map<String, dynamic>>(
       '/login',

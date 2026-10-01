@@ -2,8 +2,10 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 /// Anillo de progreso dibujado a mano (estilo dial de plano de construcción)
-/// en vez del típico CircularProgressIndicator genérico.
-class ProgressRing extends StatelessWidget {
+/// en vez del típico CircularProgressIndicator genérico. Anima el barrido
+/// entre el valor anterior y el nuevo en vez de saltar directo, para que
+/// se sienta más fluido cuando el aporte a una meta cambia su progreso.
+class ProgressRing extends StatefulWidget {
   final double progress; // 0..1
   final double size;
   final double strokeWidth;
@@ -22,23 +24,69 @@ class ProgressRing extends StatelessWidget {
   });
 
   @override
+  State<ProgressRing> createState() => _ProgressRingState();
+}
+
+class _ProgressRingState extends State<ProgressRing> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late Animation<double> _animation;
+  late double _target;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
+    _target = widget.progress.clamp(0, 1).toDouble();
+    _animation = _driveTween(begin: 0, end: _target);
+    _controller.forward();
+  }
+
+  Animation<double> _driveTween({required double begin, required double end}) {
+    return Tween(begin: begin, end: end).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant ProgressRing oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final newTarget = widget.progress.clamp(0, 1).toDouble();
+    if (newTarget != _target) {
+      _animation = _driveTween(begin: _animation.value, end: newTarget);
+      _target = newTarget;
+      _controller
+        ..reset()
+        ..forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: size,
-      height: size,
+      width: widget.size,
+      height: widget.size,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          CustomPaint(
-            size: Size(size, size),
-            painter: _RingPainter(
-              progress: progress.clamp(0, 1),
-              strokeWidth: strokeWidth,
-              trackColor: trackColor,
-              progressColor: progressColor,
+          AnimatedBuilder(
+            animation: _animation,
+            builder: (context, _) => CustomPaint(
+              size: Size(widget.size, widget.size),
+              painter: _RingPainter(
+                progress: _animation.value,
+                strokeWidth: widget.strokeWidth,
+                trackColor: widget.trackColor,
+                progressColor: widget.progressColor,
+              ),
             ),
           ),
-          if (child != null) child!,
+          if (widget.child != null) widget.child!,
         ],
       ),
     );

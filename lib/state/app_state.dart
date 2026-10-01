@@ -5,6 +5,7 @@ import '../models/pay_period.dart';
 import '../models/savings_goal.dart';
 import '../models/settings_models.dart';
 import '../services/api_exception.dart';
+import '../services/auth_service.dart';
 import '../services/data_repository.dart';
 
 /// Guarda en memoria los datos ya cargados de la API y notifica a las
@@ -15,6 +16,7 @@ class AppState extends ChangeNotifier {
   bool isLoading = false;
   String? error;
   DateTime? lastSyncedAt;
+  AuthUser? currentUser;
 
   List<PayPeriod> payPeriods = [];
   List<BudgetCategory> budgetCategories = [];
@@ -26,6 +28,10 @@ class AppState extends ChangeNotifier {
   /// expandir una categoría en Presupuesto. Se piden bajo demanda (no en
   /// loadAll) porque la mayoría de las veces el usuario no los abre.
   final Map<String, List<BudgetExpense>> expensesByCategory = {};
+
+  /// Todos los gastos del usuario (sin filtrar por categoría), para la
+  /// pestaña "Gastos". Igual que expensesByCategory, se pide bajo demanda.
+  List<BudgetExpense>? allExpenses;
 
   bool get hasData =>
       payPeriods.isNotEmpty || budgetCategories.isNotEmpty || savingsGoals.isNotEmpty;
@@ -44,12 +50,14 @@ class AppState extends ChangeNotifier {
         _repo.fetchSavingsGoals(),
         _repo.fetchIncomeSources(),
         _repo.fetchDeductionRules(),
+        AuthService.instance.me(),
       ]);
       payPeriods = results[0] as List<PayPeriod>;
       budgetCategories = results[1] as List<BudgetCategory>;
       savingsGoals = results[2] as List<SavingsGoal>;
       incomeSourceTemplates = results[3] as List<IncomeSourceTemplate>;
       deductionRuleTemplates = results[4] as List<DeductionRuleTemplate>;
+      currentUser = results[5] as AuthUser;
       lastSyncedAt = DateTime.now();
     } on ApiException catch (e) {
       error = e.message;
@@ -91,6 +99,7 @@ class AppState extends ChangeNotifier {
       spentAt: spentAt,
     );
     expensesByCategory.remove(budgetCategoryId);
+    allExpenses = null;
     await refreshBudgetCategories();
   }
 
@@ -102,9 +111,17 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Trae (o refresca) todos los gastos del usuario, sin filtrar por
+  /// categoría, para la pestaña "Gastos".
+  Future<void> loadAllExpenses() async {
+    allExpenses = await _repo.fetchExpenses();
+    notifyListeners();
+  }
+
   Future<void> deleteExpense({required String id, required String budgetCategoryId}) async {
     await _repo.deleteExpense(id);
     expensesByCategory.remove(budgetCategoryId);
+    allExpenses = null;
     await refreshBudgetCategories();
   }
 
@@ -121,6 +138,34 @@ class AppState extends ChangeNotifier {
       amount: amount,
       note: note,
       contributedAt: contributedAt,
+    );
+    _replaceSavingsGoal(updated);
+  }
+
+  Future<void> updateContribution({
+    required String savingsGoalId,
+    required String contributionId,
+    required double amount,
+    String? note,
+    required DateTime contributedAt,
+  }) async {
+    final updated = await _repo.updateContribution(
+      savingsGoalId: savingsGoalId,
+      contributionId: contributionId,
+      amount: amount,
+      note: note,
+      contributedAt: contributedAt,
+    );
+    _replaceSavingsGoal(updated);
+  }
+
+  Future<void> deleteContribution({
+    required String savingsGoalId,
+    required String contributionId,
+  }) async {
+    final updated = await _repo.deleteContribution(
+      savingsGoalId: savingsGoalId,
+      contributionId: contributionId,
     );
     _replaceSavingsGoal(updated);
   }
@@ -207,6 +252,12 @@ class AppState extends ChangeNotifier {
     return updated;
   }
 
+  Future<void> deleteSavingsGoal(String id) async {
+    await _repo.deleteSavingsGoal(id);
+    savingsGoals = savingsGoals.where((g) => g.id != id).toList();
+    notifyListeners();
+  }
+
   void _replaceSavingsGoal(SavingsGoal updated) {
     final index = savingsGoals.indexWhere((g) => g.id == updated.id);
     if (index != -1) {
@@ -255,21 +306,33 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> createBudgetCategory({
+  Future<BudgetCategory> createBudgetCategory({
     required String name,
-    required double monthlyBudget,
+    required double? monthlyBudget,
+    bool isRecurring = true,
   }) async {
-    final category = await _repo.createBudgetCategory(name: name, monthlyBudget: monthlyBudget);
+    final category = await _repo.createBudgetCategory(
+      name: name,
+      monthlyBudget: monthlyBudget,
+      isRecurring: isRecurring,
+    );
     budgetCategories = [...budgetCategories, category];
     notifyListeners();
+    return category;
   }
 
   Future<void> updateBudgetCategory({
     required String id,
     required String name,
-    required double monthlyBudget,
+    required double? monthlyBudget,
+    bool isRecurring = true,
   }) async {
-    final updated = await _repo.updateBudgetCategory(id: id, name: name, monthlyBudget: monthlyBudget);
+    final updated = await _repo.updateBudgetCategory(
+      id: id,
+      name: name,
+      monthlyBudget: monthlyBudget,
+      isRecurring: isRecurring,
+    );
     final index = budgetCategories.indexWhere((c) => c.id == id);
     if (index != -1) {
       budgetCategories = [...budgetCategories]..[index] = updated;
@@ -294,9 +357,11 @@ class AppState extends ChangeNotifier {
     incomeSourceTemplates = [];
     deductionRuleTemplates = [];
     expensesByCategory.clear();
+    allExpenses = null;
     error = null;
     isLoading = false;
     lastSyncedAt = null;
+    currentUser = null;
     notifyListeners();
   }
 }
